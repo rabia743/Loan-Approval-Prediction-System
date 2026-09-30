@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Loan Status Prediction Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --emerald: #0d5c46;
+    --emerald-light: #14876a;
+    --gold: #c9a227;
+    --gold-light: #e0bc4d;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --text: #1a1f2e;
+    --text-dim: #6b7280;
+    --border: #e5e0d8;
+    --white: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    background: #0a0a0a;
+    min-height: 100vh;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; letter-spacing: -0.02em; }
+
+  /* Backend Status */
+  .status-indicator {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(8, 30, 24, 0.6);
+    backdrop-filter: blur(14px);
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1000;
+    animation: statusIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes statusIn {
+    from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .status-dot {
+    position: relative;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #9ca3af;
+    flex-shrink: 0;
+  }
+
+  .status-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%   { transform: scale(1);   opacity: 0.6; }
+    70%  { transform: scale(2.2); opacity: 0; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .status-indicator.online .status-dot { background: #22c55e; box-shadow: 0 0 12px rgba(34, 197, 94, 0.9); }
+  .status-indicator.online .status-dot::after { background: #22c55e; }
+  .status-indicator.offline .status-dot { background: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.9); }
+  .status-indicator.offline .status-dot::after { background: #ef4444; }
+  .status-indicator.checking .status-dot { background: #eab308; box-shadow: 0 0 12px rgba(234, 179, 8, 0.9); }
+
+  .status-text {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.03em;
+  }
+
+  .status-indicator.online .status-text { color: #86efac; }
+  .status-indicator.offline .status-text { color: #fca5a5; }
+  .status-indicator.checking .status-text { color: #fde047; }
+
+  /* Background */
+  .page-bg { position: fixed; inset: 0; z-index: -3; overflow: hidden; }
+
+  .page-bg-slide {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transform: scale(1.05);
+    transition: opacity 2s ease-in-out, transform 8s ease-out;
+  }
+
+  .page-bg-slide.active { opacity: 1; transform: scale(1); }
+
+  .page-bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: linear-gradient(
+      135deg,
+      rgba(8, 30, 24, 0.88) 0%,
+      rgba(10, 15, 25, 0.85) 50%,
+      rgba(20, 15, 5, 0.88) 100%
+    );
+  }
+
+  /* Header */
+  .page-header {
+    text-align: center;
+    padding: 70px 40px 30px;
+    animation: heroIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes heroIn {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .page-header h1 {
+    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 12px;
+    text-shadow: 0 4px 40px rgba(0, 0, 0, 0.6);
+  }
+
+  .page-header h1 em {
+    font-style: italic;
+    color: var(--gold-light);
+    font-weight: 400;
+  }
+
+  .page-header p {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.78);
+    max-width: 580px;
+    margin: 0 auto;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Form */
+  .form-section {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px 48px 100px;
+  }
+
+  .form-card {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(201, 162, 39, 0.2);
+    border-radius: 24px;
+    padding: 0;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+    animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+    overflow: hidden;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Bank Header */
+  .bank-header {
+    background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-light) 100%);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bank-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(201, 162, 39, 0.15), transparent 70%);
+    pointer-events: none;
+  }
+
+  .bank-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .bank-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+    box-shadow: 0 8px 24px rgba(201, 162, 39, 0.4);
+    flex-shrink: 0;
+  }
+
+  .bank-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bank-name strong {
+    font-family: 'Fraunces', serif;
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .bank-name span {
+    font-size: 0.75rem;
+    color: var(--gold-light);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Form body */
+  .form-body {
+    padding: 40px 48px 48px;
+  }
+
+  .form-intro {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .form-intro-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(13, 92, 70, 0.1);
+    color: var(--emerald);
+    display: grid;
+    place-items: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .form-intro-text h3 {
+    font-size: 1.05rem;
+    color: var(--emerald);
+    margin-bottom: 2px;
+  }
+
+  .form-intro-text p {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  /* Section subtitle */
+  .section-subtitle {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--emerald);
+    margin: 28px 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed rgba(13, 92, 70, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .section-subtitle:first-of-type { margin-top: 0; }
+
+  .section-subtitle span {
+    background: var(--emerald);
+    color: var(--gold-light);
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    font-size: 0.72rem;
+    font-family: 'Fraunces', serif;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 7px; }
+
+  .field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .field label .hint {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .field input,
+  .field select {
+    padding: 12px 15px;
+    background: #faf8f5;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.92rem;
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: all 0.25s ease;
+    font-weight: 500;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--emerald);
+    background: var(--white);
+    box-shadow: 0 0 0 4px rgba(13, 92, 70, 0.10);
+  }
+
+  .field input.error,
+  .field input.error:focus {
+    border-color: var(--danger);
+    background: #fef2f2;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10);
+  }
+
+  .field .error-message {
+    font-size: 0.72rem;
+    color: var(--danger);
+    font-weight: 600;
+    display: none;
+    animation: errorIn 0.3s ease both;
+  }
+
+  .field .error-message.show { display: block; }
+
+  @keyframes errorIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Buttons */
+  .btn-row {
+    display: flex;
+    gap: 14px;
+    margin-top: 32px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 15px 34px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--emerald), var(--emerald-light));
+    color: var(--white);
+    box-shadow: 0 8px 24px rgba(13, 92, 70, 0.3);
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.2), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.7s;
+  }
+
+  .btn-primary:hover::after { transform: translateX(100%); }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 36px rgba(13, 92, 70, 0.4);
+  }
+
+  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1.5px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--emerald);
+    color: var(--emerald);
+    background: rgba(13, 92, 70, 0.05);
+  }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Result */
+  .result-section {
+    margin-top: 32px;
+    display: none;
+  }
+
+  .result-section.show {
+    display: block;
+    animation: resultIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes resultIn {
+    from { opacity: 0; transform: scale(0.96) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .result-card {
+    border-radius: 20px;
+    padding: 36px;
+    border: 1.5px solid;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card.approved {
+    border-color: rgba(22, 163, 74, 0.4);
+    background: linear-gradient(135deg, #f0fdf4, #ffffff 60%);
+  }
+
+  .result-card.rejected {
+    border-color: rgba(220, 38, 38, 0.4);
+    background: linear-gradient(135deg, #fef2f2, #ffffff 60%);
+  }
+
+  .customer-info-box {
+    margin-bottom: 28px;
+    padding: 20px 22px;
+    background: linear-gradient(135deg, #faf8f5, #ffffff);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .customer-info-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--emerald);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .customer-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .customer-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .customer-info-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .customer-info-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .result-icon-wrap {
+    width: 64px; height: 64px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    font-size: 1.9rem;
+    flex-shrink: 0;
+    animation: iconPop 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) 0.2s both;
+  }
+
+  @keyframes iconPop {
+    0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .result-card.approved .result-icon-wrap { background: rgba(22, 163, 74, 0.12); color: var(--success); }
+  .result-card.rejected .result-icon-wrap { background: rgba(220, 38, 38, 0.12); color: var(--danger); }
+
+  .result-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-family: 'Fraunces', serif;
+  }
+
+  .result-title.approved { color: var(--success); }
+  .result-title.rejected { color: var(--danger); }
+
+  .result-message { color: var(--text-dim); font-size: 0.9rem; }
+
+  .prob-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .prob-box {
+    padding: 18px;
+    background: #faf8f5;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .prob-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+
+  .prob-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .prob-value {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .prob-box.approved-box .prob-value { color: var(--success); }
+  .prob-box.rejected-box .prob-value { color: var(--danger); }
+
+  .prob-track {
+    height: 8px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .prob-fill {
+    height: 100%;
+    border-radius: 999px;
+    width: 0;
+    transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .prob-fill.approved { background: linear-gradient(90deg, var(--success), #4ade80); }
+  .prob-fill.rejected { background: linear-gradient(90deg, var(--danger), #f87171); }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 30px 20px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.82rem;
+    background: rgba(8, 30, 24, 0.4);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(201, 162, 39, 0.15);
+  }
+
+  /* Slide indicators */
+  .slide-indicators {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 8px;
+    z-index: 50;
+    padding: 10px 16px;
+    background: rgba(8, 30, 24, 0.55);
+    border-radius: 999px;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(201, 162, 39, 0.25);
+  }
+
+  .indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .indicator.active {
+    background: var(--gold);
+    width: 26px;
+    border-radius: 999px;
+    box-shadow: 0 0 10px rgba(201, 162, 39, 0.8);
+  }
+
+  @media (max-width: 900px) {
+    .status-indicator { top: 14px; right: 14px; padding: 8px 14px; }
+    .status-text { font-size: 0.72rem; }
+    .page-header { padding: 50px 20px 30px; }
+    .form-section { padding: 20px 20px 70px; }
+    .bank-header { padding: 22px 24px; }
+    .form-body { padding: 28px 22px 32px; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+    .customer-info-grid { grid-template-columns: 1fr 1fr; }
+    .btn-row { flex-direction: column; }
+    .btn-ghost { width: 100%; }
+    .prob-container { grid-template-columns: 1fr; }
+    .result-header { flex-direction: column; text-align: center; }
+    .slide-indicators { bottom: 14px; right: 14px; padding: 8px 12px; }
+  }
+
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: 1fr; }
+    .customer-info-grid { grid-template-columns: 1fr; }
+    .page-header h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Backend Status -->
+<div class="status-indicator checking" id="statusIndicator">
+  <span class="status-dot"></span>
+  <span class="status-text" id="statusText">Checking…</span>
+</div>
+
+<!-- Background -->
+<div class="page-bg" id="pageBg">
+  <div class="page-bg-slide active" style="background-image: url('https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?auto=format&fit=crop&w=1920&q=80');"></div>
+  <div class="page-bg-slide" style="background-image: url('https://images.unsplash.com/photo-1501167786227-4cba60f6d58f?auto=format&fit=crop&w=1920&q=80');"></div>
+  <div class="page-bg-slide" style="background-image: url('https://images.unsplash.com/photo-1560472354-b33ff0c44a43?auto=format&fit=crop&w=1920&q=80');"></div>
+  <div class="page-bg-slide" style="background-image: url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1920&q=80');"></div>
+  <div class="page-bg-slide" style="background-image: url('https://images.unsplash.com/photo-1601597111158-2fceff292cdc?auto=format&fit=crop&w=1920&q=80');"></div>
+</div>
+<div class="page-bg-overlay"></div>
+
+<!-- Header -->
+<section class="page-header">
+  <h1>Loan <em>Status</em> Prediction Model</h1>
+  <p>Enter applicant details below to generate an instant loan approval prediction.</p>
+</section>
+
+<!-- Form -->
+<div class="form-section">
+  <div class="form-card">
+
+    <!-- Bank Header (Only logo + name now) -->
+    <div class="bank-header">
+      <div class="bank-brand">
+        <div class="bank-logo">🏛</div>
+        <div class="bank-name">
+          <strong>SecureLoan</strong>
+          <span>Loan Application Portal</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Body -->
+    <div class="form-body">
+
+      <div class="form-intro">
+        <div class="form-intro-icon">📋</div>
+        <div class="form-intro-text">
+          <h3>Applicant Information</h3>
+          <p>Fill in the details below to check loan eligibility</p>
+        </div>
+      </div>
+
+      <form id="loanForm" novalidate>
+
+        <!-- Section 1: Customer Details -->
+        <div class="section-subtitle">
+          <span>1</span> Customer Details
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label>Full Name <span class="hint">letters only</span></label>
+            <input type="text" id="customerName" maxlength="60" autocomplete="off" required />
+            <span class="error-message" id="nameError"></span>
+          </div>
+          <div class="field">
+            <label>Customer ID <span class="hint">Enter your ID</span></label>
+            <input type="text" id="customerId" maxlength="30" autocomplete="off" required />
+            <span class="error-message" id="idError"></span>
+          </div>
+          <div class="field">
+            <label>Address <span class="hint">min 10 chars</span></label>
+            <input type="text" id="customerAddress" maxlength="120" autocomplete="off" required />
+            <span class="error-message" id="addressError"></span>
+          </div>
+        </div>
+
+        <!-- Section 2: Financial Details -->
+        <div class="section-subtitle">
+          <span>2</span> Financial & Personal Details
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label>No. of Dependents</label>
+            <input type="number" id="dependents" min="0" value="2" required />
+          </div>
+          <div class="field">
+            <label>Education</label>
+            <select id="education" required>
+              <option value="0">Graduate</option>
+              <option value="1">Not Graduate</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Self Employed</label>
+            <select id="selfEmployed" required>
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Annual Income (PKR)</label>
+            <input type="number" id="income" value="5000000" required />
+          </div>
+          <div class="field">
+            <label>Loan Amount (PKR)</label>
+            <input type="number" id="loanAmount" value="1500000" required />
+          </div>
+          <div class="field">
+            <label>Loan Term (Months)</label>
+            <input type="number" id="loanTerm" value="12" required />
+          </div>
+          <div class="field">
+            <label>CIBIL Score (300–900)</label>
+            <input type="number" id="cibil" value="750" min="300" max="900" required />
+          </div>
+          <div class="field">
+            <label>Residential Assets Value</label>
+            <input type="number" id="resAssets" value="2000000" required />
+          </div>
+          <div class="field">
+            <label>Commercial Assets Value</label>
+            <input type="number" id="comAssets" value="1000000" required />
+          </div>
+          <div class="field">
+            <label>Luxury Assets Value</label>
+            <input type="number" id="luxAssets" value="500000" required />
+          </div>
+          <div class="field">
+            <label>Bank Asset Value</label>
+            <input type="number" id="bankAssets" value="800000" required />
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span class="spinner" id="spinner"></span>
+            <span id="btnText">Analyze Application</span>
+          </button>
+          <button type="button" class="btn btn-ghost" onclick="resetForm()">Reset</button>
+        </div>
+      </form>
+
+      <!-- Result -->
+      <div class="result-section" id="resultSection">
+        <div class="result-card" id="resultCard">
+
+          <div class="customer-info-box">
+            <div class="customer-info-title">👤 Applicant Details</div>
+            <div class="customer-info-grid">
+              <div class="customer-info-item">
+                <span class="customer-info-label">Name</span>
+                <span class="customer-info-value" id="resultName">—</span>
+              </div>
+              <div class="customer-info-item">
+                <span class="customer-info-label">Customer ID</span>
+                <span class="customer-info-value" id="resultId">—</span>
+              </div>
+              <div class="customer-info-item">
+                <span class="customer-info-label">Address</span>
+                <span class="customer-info-value" id="resultAddress">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-header">
+            <div class="result-icon-wrap" id="resultIcon">✓</div>
+            <div>
+              <div class="result-title" id="resultTitle">Approved</div>
+              <div class="result-message" id="resultMessage"></div>
+            </div>
+          </div>
+
+          <div class="prob-container">
+            <div class="prob-box approved-box">
+              <div class="prob-head">
+                <span class="prob-name">Approved</span>
+                <span class="prob-value" id="approvedPct">0%</span>
+              </div>
+              <div class="prob-track">
+                <div class="prob-fill approved" id="approvedBar"></div>
+              </div>
+            </div>
+            <div class="prob-box rejected-box">
+              <div class="prob-head">
+                <span class="prob-name">Rejected</span>
+                <span class="prob-value" id="rejectedPct">0%</span>
+              </div>
+              <div class="prob-track">
+                <div class="prob-fill rejected" id="rejectedBar"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="slide-indicators" id="indicators"></div>
+
+<footer>
+  © 2026 Loan Status Prediction Model · Decision Tree Classifier
+</footer>
+
+<script>
+  // ============================================
+  // BACKEND STATUS
+  // ============================================
+  const statusIndicator = document.getElementById('statusIndicator');
+  const statusText = document.getElementById('statusText');
+
+  async function checkBackendStatus() {
+    try {
+      const response = await fetch('/', { method: 'HEAD', cache: 'no-store' });
+      if (response.ok) {
+        statusIndicator.classList.remove('checking', 'offline');
+        statusIndicator.classList.add('online');
+        statusText.textContent = 'Backend Online';
+      } else {
+        throw new Error('Not OK');
+      }
+    } catch (err) {
+      statusIndicator.classList.remove('checking', 'online');
+      statusIndicator.classList.add('offline');
+      statusText.textContent = 'Backend Offline';
+    }
+  }
+
+  checkBackendStatus();
+  setInterval(checkBackendStatus, 5000);
+
+  // ============================================
+  // BACKGROUND SLIDESHOW
+  // ============================================
+  const slides = document.querySelectorAll('.page-bg-slide');
+  const indicatorsContainer = document.getElementById('indicators');
+  let currentSlide = 0;
+  let slideshowInterval;
+
+  slides.forEach((_, i) => {
+    const ind = document.createElement('div');
+    ind.className = 'indicator' + (i === 0 ? ' active' : '');
+    ind.addEventListener('click', () => goToSlide(i));
+    indicatorsContainer.appendChild(ind);
+  });
+
+  const indicators = document.querySelectorAll('.indicator');
+
+  function goToSlide(index) {
+    slides[currentSlide].classList.remove('active');
+    indicators[currentSlide].classList.remove('active');
+    currentSlide = index;
+    slides[currentSlide].classList.add('active');
+    indicators[currentSlide].classList.add('active');
+    resetTimer();
+  }
+
+  function nextSlide() { goToSlide((currentSlide + 1) % slides.length); }
+
+  function resetTimer() {
+    clearInterval(slideshowInterval);
+    slideshowInterval = setInterval(nextSlide, 6000);
+  }
+
+  resetTimer();
+
+  // ============================================
+  // VALIDATION
+  // ============================================
+  const nameInput = document.getElementById('customerName');
+  const idInput = document.getElementById('customerId');
+  const addressInput = document.getElementById('customerAddress');
+  const nameError = document.getElementById('nameError');
+  const idError = document.getElementById('idError');
+  const addressError = document.getElementById('addressError');
+
+  function setError(input, errorEl, message) {
+    if (message) {
+      input.classList.add('error');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      return false;
+    } else {
+      input.classList.remove('error');
+      errorEl.textContent = '';
+      errorEl.classList.remove('show');
+      return true;
+    }
+  }
+
+  function validateName(silent = false) {
+    const value = nameInput.value.trim();
+    if (!value) return silent ? false : setError(nameInput, nameError, 'Name is required');
+    if (!/^[A-Za-z\s]+$/.test(value)) return silent ? false : setError(nameInput, nameError, 'Only letters and spaces allowed');
+    if (value.length < 3) return silent ? false : setError(nameInput, nameError, 'Name must be at least 3 characters');
+    return setError(nameInput, nameError, '');
+  }
+
+  function validateId(silent = false) {
+  const value = idInput.value.trim();
+
+  if (!value) {
+    return silent ? false : setError(
+      idInput,
+      idError,
+      'Customer ID is required'
+    );
+  }
+
+  return setError(idInput, idError, '');
+}
+
+  function validateAddress(silent = false) {
+    const value = addressInput.value.trim();
+    if (!value) return silent ? false : setError(addressInput, addressError, 'Address is required');
+    if (value.length < 10) return silent ? false : setError(addressInput, addressError, 'Address must be at least 10 characters');
+    return setError(addressInput, addressError, '');
+  }
+
+  nameInput.addEventListener('input', () => validateName(true));
+  idInput.addEventListener('input', () => validateId(true));
+  addressInput.addEventListener('input', () => validateAddress(true));
+
+  nameInput.addEventListener('blur', () => validateName(false));
+  idInput.addEventListener('blur', () => validateId(false));
+  addressInput.addEventListener('blur', () => validateAddress(false));
+
+  // ============================================
+  // FORM SUBMIT
+  // ============================================
+  const form = document.getElementById('loanForm');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+  const submitBtn = document.getElementById('submitBtn');
+  const resultSection = document.getElementById('resultSection');
+  const resultCard = document.getElementById('resultCard');
+  const resultIcon = document.getElementById('resultIcon');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultMessage = document.getElementById('resultMessage');
+  const approvedBar = document.getElementById('approvedBar');
+  const rejectedBar = document.getElementById('rejectedBar');
+  const approvedPct = document.getElementById('approvedPct');
+  const rejectedPct = document.getElementById('rejectedPct');
+  const resultName = document.getElementById('resultName');
+  const resultId = document.getElementById('resultId');
+  const resultAddress = document.getElementById('resultAddress');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const okName = validateName(false);
+    const okId = validateId(false);
+    const okAddress = validateAddress(false);
+
+    if (!okName || !okId || !okAddress) {
+      const firstError = document.querySelector('.field input.error');
+      if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    spinner.style.display = 'inline-block';
+    btnText.textContent = 'Analyzing…';
+    submitBtn.disabled = true;
+
+    const customerName = nameInput.value.trim();
+    const customerId = idInput.value.trim();
+    const customerAddress = addressInput.value.trim();
+
+    const data = {
+      No_Of_Dependents: parseInt(document.getElementById('dependents').value),
+      Education: parseInt(document.getElementById('education').value),
+      Self_Employed: parseInt(document.getElementById('selfEmployed').value),
+      Income_Annum: parseInt(document.getElementById('income').value),
+      Loan_Amount: parseInt(document.getElementById('loanAmount').value),
+      Loan_Term: parseInt(document.getElementById('loanTerm').value),
+      Cibil_Score: parseInt(document.getElementById('cibil').value),
+      Residential_Assets_Value: parseInt(document.getElementById('resAssets').value),
+      Commercial_Assets_Value: parseInt(document.getElementById('comAssets').value),
+      Luxury_Assets_Value: parseInt(document.getElementById('luxAssets').value),
+      Bank_Asset_Value: parseInt(document.getElementById('bankAssets').value),
+    };
+
+    try {
+      const response = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Server error');
+      const result = await response.json();
+      showResult(result, customerName, customerId, customerAddress);
+      checkBackendStatus();
+    } catch (err) {
+      console.error(err);
+      statusIndicator.classList.remove('checking', 'online');
+      statusIndicator.classList.add('offline');
+      statusText.textContent = 'Backend Offline';
+      alert('⚠️ Prediction failed. Please make sure the Flask backend is running.');
+    } finally {
+      spinner.style.display = 'none';
+      btnText.textContent = 'Analyze Application';
+      submitBtn.disabled = false;
+    }
+  });
+
+  function showResult(result, name, id, address) {
+    const isApproved = result.status === 'Approved';
+    const approvedProb = result.approved_probability;
+    const rejectedProb = result.rejected_probability;
+
+    resultName.textContent = name || '—';
+    resultId.textContent = id || '—';
+    resultAddress.textContent = address || '—';
+
+    resultSection.classList.add('show');
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    resultCard.classList.remove('approved', 'rejected');
+
+    if (isApproved) {
+      resultCard.classList.add('approved');
+      resultIcon.textContent = '✓';
+      resultTitle.textContent = 'Loan Approved';
+      resultTitle.className = 'result-title approved';
+      resultMessage.textContent = `Congratulations ${name}! This application meets the criteria for loan approval.`;
+    } else {
+      resultCard.classList.add('rejected');
+      resultIcon.textContent = '✕';
+      resultTitle.textContent = 'Loan Rejected';
+      resultTitle.className = 'result-title rejected';
+      resultMessage.textContent = `Dear ${name}, this application does not meet the criteria for loan approval at this time.`;
+    }
+
+    approvedBar.style.width = '0%';
+    rejectedBar.style.width = '0%';
+
+    setTimeout(() => {
+      approvedBar.style.width = approvedProb + '%';
+      rejectedBar.style.width = rejectedProb + '%';
+      approvedPct.textContent = approvedProb.toFixed(1) + '%';
+      rejectedPct.textContent = rejectedProb.toFixed(1) + '%';
+    }, 150);
+  }
+
+  function resetForm() {
+    form.reset();
+    resultSection.classList.remove('show');
+    approvedBar.style.width = '0%';
+    rejectedBar.style.width = '0%';
+    approvedPct.textContent = '0%';
+    rejectedPct.textContent = '0%';
+    resultName.textContent = '—';
+    resultId.textContent = '—';
+    resultAddress.textContent = '—';
+
+    setError(nameInput, nameError, '');
+    setError(idInput, idError, '');
+    setError(addressInput, addressError, '');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
