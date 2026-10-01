@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="bank-story.svg" width="100%" alt="Customer walks into bank and gets loan approved"/>
+
+</div>
+
 # 🏦 Loan Approval Prediction System
 
 This is a machine learning project that predicts whether a loan application will be **Approved** or **Rejected** based on an applicant's personal and financial information.
